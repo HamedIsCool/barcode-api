@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Barcode Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #f6f7f9;
+      margin: 0;
+    }
+
+    .card {
+      background: #fff;
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.08);
+      width: min(600px, 92vw);
+      text-align: center; /* center content */
+    }
+
+    h1 { 
+      margin: 0 0 16px; 
+      font-size: 22px; 
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px; /* space between form elements */
+    }
+
+    label {
+      font-size: 14px;
+      color: #444;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      max-width: 400px; /* keeps input narrower */
+      padding: 12px 14px;
+      border: 1px solid #d0d5dd;
+      border-radius: 10px;
+      font-size: 16px;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      width: 100%;
+    }
+
+    button {
+      padding: 12px 16px;
+      border: 0;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .primary {
+      background: #111827;
+      color: #fff;
+    }
+
+    .ghost {
+      background: #eef2f7;
+    }
+
+    .hint {
+      color: #6b7280;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Barcode Generator</h1>
+    <form id="form">
+      <label for="code">Enter code</label>
+      <input id="code" type="text" placeholder="e.g. I-MCE-169369/25" required />
+      <div class="row">
+        <button class="primary" type="submit">Generate & Download</button>
+        <button class="ghost" type="button" id="clear">Clear</button>
+      </div>
+      <div class="hint">This downloads a PNG using the /barcode API on this server.</div>
+    </form>
+  </div>
+
+  <script>
+    const form = document.getElementById('form');
+    const codeInput = document.getElementById('code');
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const v = codeInput.value.trim();
+      if (!v) return;
+      const url = `/barcode?data=${encodeURIComponent(v)}`;
+      window.location.href = url; // triggers “Save As”
+    });
+
+    document.getElementById('clear').addEventListener('click', () => {
+      codeInput.value = "";
+      codeInput.focus();
+    });
+  </script>
+</body>
+</html>
