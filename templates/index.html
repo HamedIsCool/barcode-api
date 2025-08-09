@@ -26,13 +26,17 @@
     .preview-card { background:#fff; border:1px dashed #d1d5db; border-radius:12px; padding:16px; width:min(560px, 92vw); }
     .preview-title { font-size:14px; color:#374151; margin:0 0 8px; }
     .label { display:flex; align-items:center; justify-content:center; width:80mm; height:40mm; background:#fff; margin:0 auto; }
-    .label img { max-width:100%; max-height:100%; object-fit:contain; image-rendering: crisp-edges; }
+    .label img { display:block; max-width:100%; max-height:100%; object-fit:contain; image-rendering: crisp-edges; }
 
     @media print {
       @page { size: 80mm 40mm; margin: 0; }
       body { margin: 0; }
+      /* Hide UI, keep preview + label + image only */
       .card, .row, form, .hint, .error, .preview-title { display: none !important; }
-      .preview-wrap, .preview-card, .label { display:block !important; border:0 !important; padding:0 !important; margin:0 auto !important; }
+      .preview-wrap, .preview-card, .label, .label img {
+        display:block !important; border:0 !important; padding:0 !important; margin:0 auto !important;
+      }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   </style>
 </head>
@@ -51,7 +55,7 @@
       <div class="row">
         <button class="primary" type="submit">Önizlə</button>
         <a id="download" class="linkbtn ghost hidden" href="#" download>Yüklə (PNG)</a>
-        <button id="printBtn" class="ghost hidden" type="button">Çap et</button>
+        <button id="printBtn" class="ghost hidden" type="button" disabled>Çap et</button>
         <button class="ghost" type="button" id="clear">Təmizlə</button>
       </div>
 
@@ -69,16 +73,19 @@
   </div>
 
   <script>
-    const form       = document.getElementById('form');
-    const codeInput  = document.getElementById('code');
-    const errBox     = document.getElementById('err');
-    const preview    = document.getElementById('previewImg');
-    const previewWrap= document.getElementById('previewWrap');
-    const dlLink     = document.getElementById('download');
-    const printBtn   = document.getElementById('printBtn');
+    const form        = document.getElementById('form');
+    const codeInput   = document.getElementById('code');
+    const errBox      = document.getElementById('err');
+    const preview     = document.getElementById('previewImg');
+    const previewWrap = document.getElementById('previewWrap');
+    const dlLink      = document.getElementById('download');
+    const printBtn    = document.getElementById('printBtn');
 
     // Regex: (I|C)-[A-Z]+-\d+/\d{2}
     const pattern = /^(I|C)-[A-Z]+-\d+\/\d{2}$/;
+
+    let imageReady = false;
+    let pendingPrint = false;
 
     codeInput.addEventListener('input', () => {
       codeInput.value = codeInput.value.toUpperCase();
@@ -93,22 +100,46 @@
       return ok;
     }
 
+    // Enable actions only after the image fully loads
+    preview.addEventListener('load', () => {
+      imageReady = true;
+      dlLink.classList.remove('hidden');
+      printBtn.classList.remove('hidden');
+      printBtn.disabled = false;
+
+      if (pendingPrint) {
+        setTimeout(() => window.print(), 100);
+        pendingPrint = false;
+      }
+    });
+
+    preview.addEventListener('error', () => {
+      imageReady = false;
+      dlLink.classList.add('hidden');
+      printBtn.classList.add('hidden');
+      printBtn.disabled = true;
+      alert("Şəkli yükləmək mümkün olmadı. Zəhmət olmasa yenidən cəhd edin.");
+    });
+
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const v = codeInput.value.trim().toUpperCase();
       if (!validate()) { codeInput.focus(); return; }
 
-      const previewURL  = `/barcode/preview?data=${encodeURIComponent(v)}`;   // NEW
-      const downloadURL = `/barcode/download?data=${encodeURIComponent(v)}`;  // NEW
+      // Use preview/download endpoints with a cache-busting timestamp
+      const ts = Date.now();
+      const previewURL  = `/barcode/preview?data=${encodeURIComponent(v)}&t=${ts}`;
+      const downloadURL = `/barcode/download?data=${encodeURIComponent(v)}&t=${ts}`;
 
-      // Show preview
+      imageReady = false;
+      dlLink.classList.add('hidden');
+      printBtn.classList.add('hidden');
+      printBtn.disabled = true;
+
       preview.src = previewURL;
       previewWrap.classList.remove('hidden');
 
-      // Enable download + print
       dlLink.href = downloadURL;
-      dlLink.classList.remove('hidden');
-      printBtn.classList.remove('hidden');
     });
 
     document.getElementById('clear').addEventListener('click', () => {
@@ -118,10 +149,19 @@
       previewWrap.classList.add('hidden');
       dlLink.classList.add('hidden');
       printBtn.classList.add('hidden');
+      printBtn.disabled = true;
+      imageReady = false;
+      pendingPrint = false;
       codeInput.focus();
     });
 
-    printBtn.addEventListener('click', () => window.print());
+    printBtn.addEventListener('click', () => {
+      if (imageReady) {
+        setTimeout(() => window.print(), 50);
+      } else {
+        pendingPrint = true; // print right after image loads
+      }
+    });
   </script>
 </body>
 </html>
