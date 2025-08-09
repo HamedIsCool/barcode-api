@@ -7,101 +7,79 @@
   <style>
     :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
 
-    body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      background: #f6f7f9;
-      margin: 0;
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:#f6f7f9; margin:0; }
+    .card { background:#fff; padding:24px; border-radius:16px; box-shadow:0 8px 30px rgba(0,0,0,.08); width:min(720px, 94vw); text-align:center; }
+    h1 { margin:0 0 16px; font-size:22px; }
+
+    form { display:flex; flex-direction:column; align-items:center; gap:14px; }
+    label { font-size:14px; color:#444; }
+    input[type="text"] { width:100%; max-width:480px; padding:12px 14px; border:1px solid #d0d5dd; border-radius:10px; font-size:16px; text-transform:uppercase; }
+    .row { display:flex; gap:10px; justify-content:center; width:100%; flex-wrap:wrap; }
+    button, .linkbtn { padding:12px 16px; border:0; border-radius:10px; font-size:16px; cursor:pointer; text-decoration:none; display:inline-block; }
+    .primary { background:#111827; color:#fff; }
+    .ghost   { background:#eef2f7; }
+    .hint  { color:#6b7280; font-size:12px; }
+    .error { color:#b91c1c; font-size:13px; line-height:1.3; }
+    .hidden { display:none; }
+
+    .preview-wrap { margin-top:16px; display:flex; justify-content:center; }
+    .preview-card { background:#fff; border:1px dashed #d1d5db; border-radius:12px; padding:16px; width:min(560px, 92vw); }
+    .preview-title { font-size:14px; color:#374151; margin:0 0 8px; }
+    .label { display:flex; align-items:center; justify-content:center; width:80mm; height:40mm; background:#fff; margin:0 auto; }
+    .label img { max-width:100%; max-height:100%; object-fit:contain; image-rendering: crisp-edges; }
+
+    @media print {
+      @page { size: 80mm 40mm; margin: 0; }
+      body { margin: 0; }
+      .card, .row, form, .hint, .error, .preview-title { display: none !important; }
+      .preview-wrap, .preview-card, .label { display:block !important; border:0 !important; padding:0 !important; margin:0 auto !important; }
     }
-
-    .card {
-      background: #fff;
-      padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 8px 30px rgba(0,0,0,.08);
-      width: min(600px, 92vw);
-      text-align: center;
-    }
-
-    h1 { margin: 0 0 16px; font-size: 22px; }
-
-    form {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 14px;
-    }
-
-    label { font-size: 14px; color: #444; }
-
-    input[type="text"] {
-      width: 100%;
-      max-width: 400px;
-      padding: 12px 14px;
-      border: 1px solid #d0d5dd;
-      border-radius: 10px;
-      font-size: 16px;
-      text-transform: uppercase; /* show caps visually */
-    }
-
-    .row {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      width: 100%;
-    }
-
-    button {
-      padding: 12px 16px;
-      border: 0;
-      border-radius: 10px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-
-    .primary { background: #111827; color: #fff; }
-    .ghost   { background: #eef2f7; }
-
-    .hint  { color: #6b7280; font-size: 12px; }
-    .error { color: #b91c1c; font-size: 13px; line-height: 1.3; }
-
-    .hidden { display: none; }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>Barcode Generator</h1>
+
     <form id="form" novalidate>
       <label for="code">Kodu daxil edin</label>
       <input id="code" type="text" placeholder="məs: I-MCE-169369/25" required />
-
       <div id="err" class="error hidden" aria-live="polite">
         Format uyğun deyil. Düzgün format: <strong>I|C-SERİYA-NÖMRƏ/İL</strong><br/>
         Nümunələr: <code>I-MCE-169369/25</code>, <code>C-MIP-1/24</code>, <code>I-MCGE-987654321/25</code>
       </div>
 
       <div class="row">
-        <button class="primary" type="submit">Yarat & Yüklə</button>
+        <button class="primary" type="submit">Önizlə</button>
+        <a id="download" class="linkbtn ghost hidden" href="#" download>Yüklə (PNG)</a>
+        <button id="printBtn" class="ghost hidden" type="button">Çap et</button>
         <button class="ghost" type="button" id="clear">Təmizlə</button>
       </div>
 
-      <div class="hint">
-        Bu serverdəki <code>/barcode</code> API vasitəsilə PNG faylını endirəcək.
-      </div>
+      <div class="hint">Önizləmədən sonra <strong>Yüklə</strong> və ya <strong>Çap et</strong> seçin.</div>
     </form>
+
+    <div class="preview-wrap hidden" id="previewWrap">
+      <div class="preview-card">
+        <p class="preview-title">Önizləmə (80×40&nbsp;mm etiket sahəsi):</p>
+        <div class="label">
+          <img id="previewImg" alt="Barcode preview" />
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
-    const form      = document.getElementById('form');
-    const codeInput = document.getElementById('code');
-    const errBox    = document.getElementById('err');
+    const form       = document.getElementById('form');
+    const codeInput  = document.getElementById('code');
+    const errBox     = document.getElementById('err');
+    const preview    = document.getElementById('previewImg');
+    const previewWrap= document.getElementById('previewWrap');
+    const dlLink     = document.getElementById('download');
+    const printBtn   = document.getElementById('printBtn');
 
     // Regex: (I|C)-[A-Z]+-\d+/\d{2}
     const pattern = /^(I|C)-[A-Z]+-\d+\/\d{2}$/;
 
-    // keep value uppercase for validation consistency
     codeInput.addEventListener('input', () => {
       codeInput.value = codeInput.value.toUpperCase();
       validate();
@@ -110,34 +88,40 @@
     function validate() {
       const v = codeInput.value.trim();
       const ok = pattern.test(v);
-      if (!v) {
-        errBox.classList.add('hidden');
-        return false;
-      }
-      if (!ok) {
-        errBox.classList.remove('hidden');
-      } else {
-        errBox.classList.add('hidden');
-      }
+      if (!v) { errBox.classList.add('hidden'); return false; }
+      if (!ok) errBox.classList.remove('hidden'); else errBox.classList.add('hidden');
       return ok;
     }
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const v = codeInput.value.trim().toUpperCase();
-      if (!validate()) {
-        codeInput.focus();
-        return; // block submit on invalid format
-      }
-      const url = `/barcode?data=${encodeURIComponent(v)}`;
-      window.location.href = url; // triggers “Save As”
+      if (!validate()) { codeInput.focus(); return; }
+
+      const previewURL  = `/barcode/preview?data=${encodeURIComponent(v)}`;   // NEW
+      const downloadURL = `/barcode/download?data=${encodeURIComponent(v)}`;  // NEW
+
+      // Show preview
+      preview.src = previewURL;
+      previewWrap.classList.remove('hidden');
+
+      // Enable download + print
+      dlLink.href = downloadURL;
+      dlLink.classList.remove('hidden');
+      printBtn.classList.remove('hidden');
     });
 
     document.getElementById('clear').addEventListener('click', () => {
       codeInput.value = "";
       errBox.classList.add('hidden');
+      preview.src = "";
+      previewWrap.classList.add('hidden');
+      dlLink.classList.add('hidden');
+      printBtn.classList.add('hidden');
       codeInput.focus();
     });
+
+    printBtn.addEventListener('click', () => window.print());
   </script>
 </body>
 </html>

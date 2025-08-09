@@ -43,40 +43,45 @@ def home(request: Request):
     # Serves templates/index.html
     return templates.TemplateResponse("index.html", {"request": request})
 
-@app.get("/barcode")
-def generate_barcode(
-    data: str = Query(..., min_length=1, max_length=1024),
-    disposition: str = Query("attachment", pattern="^(inline|attachment)$")  # inline = preview, attachment = download
-):
-    # Normalize to uppercase (matches frontend behavior)
+def _make_barcode_bytes(data: str) -> tuple[bytes, str]:
+    """Validate, render, save, and return (png_bytes, filename)."""
     data = data.upper().strip()
 
-    # Backend validation to keep inputs clean even from direct API calls
     if not CODE_PATTERN.match(data):
         raise HTTPException(
             status_code=400,
             detail="Invalid code format. Expected (I|C)-[A-Z]+-<number>/<yy>, e.g. I-MCE-169369/25"
         )
 
-    try:
-        cls = barcode.get_barcode_class('code128')
-        bc = cls(data, writer=ImageWriter())
-        pil_img: Image.Image = bc.render()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    cls = barcode.get_barcode_class('code128')
+    bc = cls(data, writer=ImageWriter())
+    pil_img: Image.Image = bc.render()
 
-    # Save to disk (named after sanitized input, unique if exists)
     fname_base = sanitize(data)
     save_path = unique_path(BARCODE_DIR, fname_base, ".png")
     pil_img.save(save_path, format="PNG")
     print(f"Saved barcode -> {save_path}")
 
-    # Stream back to caller (inline for preview, attachment for download)
     buf = io.BytesIO()
     pil_img.save(buf, format="PNG")
-    buf.seek(0)
+    return buf.getvalue(), save_path.name
+
+# Always inline (for <img> preview)
+@app.get("/barcode/preview")
+def barcode_preview(data: str = Query(..., min_length=1, max_length=1024)):
+    content, fname = _make_barcode_bytes(data)
     return StreamingResponse(
-        buf,
+        io.BytesIO(content),
         media_type="image/png",
-        headers={"Content-Disposition": f'{disposition}; filename="{save_path.name}"'}
+        headers={"Content-Disposition": f'inline; filename="{fname}"'}
+    )
+
+# Always attachment (Save As)
+@app.get("/barcode/download")
+def barcode_download(data: str = Query(..., min_length=1, max_length=1024)):
+    content, fname = _make_barcode_bytes(data)
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type="image/png",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'}
     )
