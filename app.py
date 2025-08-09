@@ -1,6 +1,6 @@
 # app.py (barcode only + UI at "/")
 from fastapi import FastAPI, Query, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 import io, re
 from pathlib import Path
@@ -40,13 +40,11 @@ def unique_path(dirpath: Path, base_name: str, ext: str = ".png") -> Path:
 
 @app.get("/")
 def home(request: Request):
-    # Serves templates/index.html
     return templates.TemplateResponse("index.html", {"request": request})
 
 def _make_barcode_bytes(data: str) -> tuple[bytes, str]:
     """Validate, render, save, and return (png_bytes, filename)."""
     data = data.upper().strip()
-
     if not CODE_PATTERN.match(data):
         raise HTTPException(
             status_code=400,
@@ -66,7 +64,7 @@ def _make_barcode_bytes(data: str) -> tuple[bytes, str]:
     pil_img.save(buf, format="PNG")
     return buf.getvalue(), save_path.name
 
-# Always inline (for <img> preview)
+# Preview (inline)
 @app.get("/barcode/preview")
 def barcode_preview(data: str = Query(..., min_length=1, max_length=1024)):
     content, fname = _make_barcode_bytes(data)
@@ -76,7 +74,7 @@ def barcode_preview(data: str = Query(..., min_length=1, max_length=1024)):
         headers={"Content-Disposition": f'inline; filename="{fname}"'}
     )
 
-# Always attachment (Save As)
+# Download (Save As)
 @app.get("/barcode/download")
 def barcode_download(data: str = Query(..., min_length=1, max_length=1024)):
     content, fname = _make_barcode_bytes(data)
@@ -85,3 +83,41 @@ def barcode_download(data: str = Query(..., min_length=1, max_length=1024)):
         media_type="image/png",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'}
     )
+
+# Dedicated print page (auto-print after image loads)
+@app.get("/print", response_class=HTMLResponse)
+def print_page(data: str = Query(..., min_length=1, max_length=1024)):
+    data = data.upper().strip()
+    return f"""
+<!doctype html>
+<html lang="az">
+<head>
+  <meta charset="utf-8" />
+  <title>Çap – {data}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body {{ margin:0; padding:0; }}
+    .wrap {{ display:flex; align-items:center; justify-content:center; min-height:100vh; }}
+    .label {{ width:80mm; height:40mm; display:flex; align-items:center; justify-content:center; background:#fff; }}
+    .label img {{ display:block; max-width:100%; max-height:100%; object-fit:contain; image-rendering:crisp-edges; }}
+    @media print {{
+      @page {{ size: 80mm 40mm; margin: 0; }}
+      html, body {{ margin:0 !important; padding:0 !important; }}
+      .wrap {{ min-height:auto; }}
+    }}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="label">
+      <img id="img" alt="barcode" src="/barcode/preview?data={data}&t={{int(__import__('time').time()*1000)}}" />
+    </div>
+  </div>
+  <script>
+    const img = document.getElementById('img');
+    function printNow() {{ setTimeout(() => window.print(), 100); }}
+    if (img.complete) printNow(); else img.addEventListener('load', printNow);
+  </script>
+</body>
+</html>
+"""
