@@ -8,34 +8,35 @@
     :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
 
     body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:#f6f7f9; margin:0; }
-    .card { background:#fff; padding:24px; border-radius:16px; box-shadow:0 8px 30px rgba(0,0,0,.08); width:min(720px, 94vw); text-align:center; }
+    .card { background:#fff; padding:24px; border-radius:16px; box-shadow:0 8px 30px rgba(0,0,0,.08); width:min(900px, 96vw); text-align:center; }
     h1 { margin:0 0 16px; font-size:22px; }
 
-    form { display:flex; flex-direction:column; align-items:center; gap:14px; }
-    label { font-size:14px; color:#444; }
-    input[type="text"] { width:100%; max-width:480px; padding:12px 14px; border:1px solid #d0d5dd; border-radius:10px; font-size:16px; text-transform:uppercase; }
-    .row { display:flex; gap:10px; justify-content:center; width:100%; flex-wrap:wrap; }
+    .row { display:flex; gap:10px; justify-content:center; width:100%; flex-wrap:wrap; margin-top:10px; }
     button, .linkbtn { padding:12px 16px; border:0; border-radius:10px; font-size:16px; cursor:pointer; text-decoration:none; display:inline-block; }
     .primary { background:#111827; color:#fff; }
     .ghost   { background:#eef2f7; }
     .hint  { color:#6b7280; font-size:12px; }
-    .error { color:#b91c1c; font-size:13px; line-height:1.3; }
+    .error { color:#b91c1c; font-size:13px; line-height:1.3; white-space:pre-wrap; }
+    .ok    { color:#065f46; font-size:13px; }
     .hidden { display:none; }
 
-    .preview-wrap { margin-top:16px; display:flex; justify-content:center; }
-    .preview-card { background:#fff; border:1px dashed #d1d5db; border-radius:12px; padding:16px; width:min(560px, 92vw); }
-    .preview-title { font-size:14px; color:#374151; margin:0 0 8px; }
-    .label { display:flex; align-items:center; justify-content:center; width:80mm; height:40mm; background:#fff; margin:0 auto; }
-    .label img { display:block; max-width:100%; max-height:100%; object-fit:contain; image-rendering: crisp-edges; }
+    /* input line */
+    .inputline { display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
+    .inputline input[type="text"] { width:100%; max-width:480px; padding:12px 14px; border:1px solid #d0d5dd; border-radius:10px; font-size:16px; text-transform:uppercase; }
+    .mini { padding:12px 14px; }
+
+    /* preview grid */
+    .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:12px; width:100%; max-width:860px; margin:16px auto 0; }
+    .cardlet { background:#fff; border:1px dashed #d1d5db; border-radius:12px; padding:10px; position:relative; }
+    .remove { position:absolute; top:6px; right:6px; background:#fee2e2; border:0; border-radius:8px; padding:4px 8px; cursor:pointer; font-size:12px; }
+    .label-sm { width:240px; height:120px; margin:0 auto; display:flex; align-items:center; justify-content:center; background:#fff; }
+    .label-sm img { display:block; max-width:100%; max-height:100%; object-fit:contain; image-rendering: crisp-edges; }
+    .codecap { font-size:12px; color:#374151; margin-top:6px; word-break:break-word; }
 
     @media print {
       @page { size: 80mm 40mm; margin: 0; }
       body { margin: 0; }
-      .card, .row, form, .hint, .error, .preview-title { display: none !important; }
-      .preview-wrap, .preview-card, .label, .label img {
-        display:block !important; border:0 !important; padding:0 !important; margin:0 auto !important;
-      }
-      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .card, .row, .hint, .error, .ok, .grid { display: none !important; }
     }
   </style>
 </head>
@@ -43,86 +44,144 @@
   <div class="card">
     <h1>Barcode Generator</h1>
 
-    <form id="form" novalidate>
-      <label for="code">Kodu daxil edin</label>
-      <input id="code" type="text" placeholder="məs: I-MCE-169369/25" required />
-      <div id="err" class="error hidden" aria-live="polite">
-        Format uyğun deyil. Düzgün format: <strong>I|C-SERİYA-NÖMRƏ/İL</strong><br/>
-        Nümunələr: <code>I-MCE-169369/25</code>, <code>C-MIP-1/24</code>, <code>I-MCGE-987654321/25</code>
-      </div>
+    <!-- Add one-by-one -->
+    <div class="inputline">
+      <input id="code" type="text" placeholder="məs: I-MCE-169369/25" />
+      <button id="addBtn" class="primary mini" type="button">Əlavə et</button>
+      <button id="clearAll" class="ghost mini" type="button">Hamısını təmizlə</button>
+    </div>
 
-      <div class="row">
-        <button class="primary" type="submit">Önizlə</button>
-        <a id="download" class="linkbtn ghost hidden" href="#" download>Yüklə (PNG)</a>
-        <button id="printBtn" class="ghost hidden" type="button">Çap et</button>
-        <button class="ghost" type="button" id="clear">Təmizlə</button>
-      </div>
+    <div id="err" class="error hidden" aria-live="polite"></div>
+    <div id="ok" class="ok hidden"></div>
 
-      <div class="hint">Önizləmədən sonra <strong>Yüklə</strong> və ya <strong>Çap et</strong> seçin.</div>
-    </form>
+    <div class="row">
+      <button id="previewAll" class="ghost" type="button">Hamısını önizlə</button>
+      <button id="printAll" class="ghost hidden" type="button">Hamısını çap et</button>
+    </div>
 
-    <div class="preview-wrap hidden" id="previewWrap">
-      <div class="preview-card">
-        <p class="preview-title">Önizləmə (80×40&nbsp;mm etiket sahəsi):</p>
-        <div class="label">
-          <img id="previewImg" alt="Barcode preview" />
-        </div>
-      </div>
+    <div id="grid" class="grid hidden"></div>
+
+    <div class="hint" style="margin-top:10px">
+      Format: <strong>I|C-SERİYA-NÖMRƏ/İL</strong> &nbsp; (nümunə: <code>I-MCE-169369/25</code>)
     </div>
   </div>
 
   <script>
-    const form        = document.getElementById('form');
-    const codeInput   = document.getElementById('code');
-    const errBox      = document.getElementById('err');
-    const preview     = document.getElementById('previewImg');
-    const previewWrap = document.getElementById('previewWrap');
-    const dlLink      = document.getElementById('download');
-    const printBtn    = document.getElementById('printBtn');
+    const input   = document.getElementById('code');
+    const addBtn  = document.getElementById('addBtn');
+    const clearAll= document.getElementById('clearAll');
+    const previewAllBtn = document.getElementById('previewAll');
+    const printAllBtn   = document.getElementById('printAll');
+    const errBox  = document.getElementById('err');
+    const okBox   = document.getElementById('ok');
+    const grid    = document.getElementById('grid');
 
     const pattern = /^(I|C)-[A-Z]+-\d+\/\d{2}$/;
+    let codes = [];
 
-    codeInput.addEventListener('input', () => {
-      codeInput.value = codeInput.value.toUpperCase();
-      validate();
-    });
+    function showError(msg) {
+      errBox.textContent = msg;
+      errBox.classList.remove('hidden');
+      okBox.classList.add('hidden');
+    }
+    function clearError() {
+      errBox.classList.add('hidden');
+      errBox.textContent = "";
+    }
+    function showOk(msg) {
+      okBox.textContent = msg;
+      okBox.classList.remove('hidden');
+    }
+    function renderGrid() {
+      if (codes.length === 0) {
+        grid.innerHTML = "";
+        grid.classList.add('hidden');
+        printAllBtn.classList.add('hidden');
+        return;
+      }
+      const ts = Date.now();
+      grid.innerHTML = codes.map(c => `
+        <div class="cardlet" data-code="${c}">
+          <button class="remove" title="Sil" type="button">Sil</button>
+          <div class="label-sm">
+            <img alt="barcode ${c}" src="/barcode/preview?data=${encodeURIComponent(c)}&t=${ts}">
+          </div>
+          <div class="codecap">${c}</div>
+        </div>
+      `).join("");
+      grid.classList.remove('hidden');
+      printAllBtn.classList.remove('hidden');
 
-    function validate() {
-      const v = codeInput.value.trim();
-      const ok = pattern.test(v);
-      if (!v) { errBox.classList.add('hidden'); return false; }
-      if (!ok) errBox.classList.remove('hidden'); else errBox.classList.add('hidden');
-      return ok;
+      // wire remove buttons
+      grid.querySelectorAll('.remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const code = btn.closest('.cardlet').getAttribute('data-code');
+          codes = codes.filter(x => x !== code);
+          showOk(`${code} siyahıdan silindi. (${codes.length} kod)`);
+          renderGrid();
+        });
+      });
     }
 
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const v = codeInput.value.trim().toUpperCase();
-      if (!validate()) { codeInput.focus(); return; }
+    function addCode(raw) {
+      const v = (raw || "").toUpperCase().trim();
+      if (!v) { showError("Kod boş ola bilməz."); return; }
+      if (!pattern.test(v)) {
+        showError("Kod formatı yanlışdır. Nümunə: I-MCE-169369/25");
+        return;
+      }
+      if (codes.includes(v)) {
+        showError("Bu kod artıq siyahıya əlavə edilib.");
+        return;
+      }
+      codes.push(v);
+      clearError();
+      showOk(`${v} əlavə olundu. (${codes.length} kod)`);
+      input.value = "";
+      input.focus();
+      renderGrid();
+    }
 
-      const ts = Date.now();
-      const previewURL  = `/barcode/preview?data=${encodeURIComponent(v)}&t=${ts}`;
-      const downloadURL = `/barcode/download?data=${encodeURIComponent(v)}&t=${ts}`;
+    // Add button
+    addBtn.addEventListener('click', () => addCode(input.value));
 
-      // Show preview + enable download
-      preview.src = previewURL;
-      previewWrap.classList.remove('hidden');
-      dlLink.href = downloadURL;
-      dlLink.classList.remove('hidden');
-
-      // Print opens a dedicated page that auto-prints
-      printBtn.onclick = () => window.open(`/print?data=${encodeURIComponent(v)}`, "_blank");
-      printBtn.classList.remove('hidden');
+    // Enter to add
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addCode(input.value);
+      }
     });
 
-    document.getElementById('clear').addEventListener('click', () => {
-      codeInput.value = "";
-      errBox.classList.add('hidden');
-      preview.src = "";
-      previewWrap.classList.add('hidden');
-      dlLink.classList.add('hidden');
-      printBtn.classList.add('hidden');
-      codeInput.focus();
+    // Preview all
+    previewAllBtn.addEventListener('click', () => {
+      if (codes.length === 0) {
+        showError("Heç bir kod əlavə edilməyib.");
+        return;
+      }
+      clearError();
+      showOk(`${codes.length} kod üçün önizləmə göstərilir.`);
+      renderGrid();
+    });
+
+    // Print all
+    printAllBtn.addEventListener('click', () => {
+      if (codes.length === 0) {
+        showError("Çap üçün heç bir kod yoxdur.");
+        return;
+      }
+      const qs = codes.map(c => `code=${encodeURIComponent(c)}`).join('&');
+      window.open(`/print-batch?${qs}`, "_blank");
+    });
+
+    // Clear all
+    clearAll.addEventListener('click', () => {
+      codes = [];
+      input.value = "";
+      clearError();
+      okBox.classList.add('hidden');
+      renderGrid();
+      input.focus();
     });
   </script>
 </body>
